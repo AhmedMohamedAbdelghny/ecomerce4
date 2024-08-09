@@ -10,9 +10,14 @@ import cors from "cors"
 
 export const initApp = (express, app) => {
 
-    
+
     app.use(cors());
     app.use(express.json());
+
+
+    app.get("/", (req, res) => {
+        res.status(200).json({ msg: "hello world" })
+    })
 
     app.use("/users", routers.userRouter)
     app.use("/categories", routers.categoryRouter)
@@ -23,7 +28,7 @@ export const initApp = (express, app) => {
     app.use("/cart", routers.cartRouter)
     app.use("/orders", routers.orderRouter)
     app.use("/reviews", routers.reviewRouter)
-   
+
 
 
 
@@ -36,7 +41,7 @@ export const initApp = (express, app) => {
     })
 
     //GlobalErrorHandler
-    app.use(GlobalErrorHandler,deleteFromCloudinary,deleteFromDB)
+    app.use(GlobalErrorHandler, deleteFromCloudinary, deleteFromDB)
 
 
 
