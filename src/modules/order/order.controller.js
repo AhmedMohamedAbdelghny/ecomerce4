@@ -6,6 +6,8 @@ import couponModel from './../../../db/models/coupon.model.js';
 import cartModel from "../../../db/models/cart.model.js";
 import { createInvoice } from "../../utils/pdf.js";
 import { sendEmail } from "../../service/sendEmail.js";
+import { payment } from "../../utils/payment.js";
+import Stripe from "stripe";
 
 
 
@@ -86,37 +88,64 @@ export const createOrder = asyncHandler(async (req, res, next) => {
 
 
     //create pdf
+    // const invoice = {
+    //     shipping: {
+    //         name: req.user.name,
+    //         address: req.user.address,
+    //         city: "San Francisco",
+    //         state: "CA",
+    //         country: "US",
+    //         postal_code: 94111
+    //     },
+    //     items: order.products,
+    //     subtotal: order.subPrice * 100,
+    //     paid: order.totalPrice * 100,
+    //     invoice_nr: order._id,
+    //     date: order.createdAt,
+    //     coupon: req.body?.coupon?.amount
+    // };
 
-    const invoice = {
-        shipping: {
-            name: req.user.name,
-            address: req.user.address,
-            city: "San Francisco",
-            state: "CA",
-            country: "US",
-            postal_code: 94111
-        },
-        items: order.products,
-        subtotal: order.subPrice * 100,
-        paid: order.totalPrice * 100,
-        invoice_nr: order._id,
-        date: order.createdAt,
-        coupon: req.body?.coupon?.amount
-    };
+    // await createInvoice(invoice, "invoice.pdf");
 
-    await createInvoice(invoice, "invoice.pdf");
+    // await sendEmail(req.user.email, "order", "order", [
+    //     {
+    //         path: "invoice.pdf",
+    //         content_type: "application/pdf",
+    //     }, {
+    //         path: "route.jpeg",
+    //         content_type: "image/png"
+    //     }
+    // ])
 
+    if (paymentMethod == "card") {
+        const stripe = new Stripe(process.env.secret_key)
 
-    await sendEmail(req.user.email, "order", "order", [
-        {
-            path: "invoice.pdf",
-            content_type: "application/pdf",
-        }, {
-            path: "route.jpeg",
-            content_type: "image/png"
-        }
-    ])
+        const session = await payment({
+            stripe,
+            payment_method_types: ["card"],
+            mode: "payment",
+            customer_email: req.user.email,
+            metadata: {
+                orderId: order._id.toString(),
+            },
+            success_url: `${req.protocol}://${req.headers.host}/orders/success/${order._id}`,
+            cancel_url: `${req.protocol}://${req.headers.host}/orders/cancel/${order._id}`,
+            line_items: order.products.map((product) => {
+                return {
+                    price_data: {
+                        currency: "egp",
+                        product_data: {
+                            name: product.title,
+                        },
+                        unit_amount: product.finalPrice * 100,
+                    },
+                    quantity: product.quantity,
+                }
+            })
+        })
+        return res.status(201).json({ status: "done", order, session })
 
+    }
 
 
     res.status(201).json({ status: "done", order })
@@ -124,6 +153,32 @@ export const createOrder = asyncHandler(async (req, res, next) => {
 })
 
 
+
+export const webhook = async (req, res) => {
+    const stripe = new Stripe(process.env.secret_key)
+    const sig = req.headers['stripe-signature'];
+
+    let event;
+
+    try {
+        event = stripe.webhooks.constructEvent(req.body, sig, process.env.endpointSecret);
+    } catch (err) {
+        res.status(400).send(`Webhook Error: ${err.message}`);
+        return;
+    }
+    
+    const { orderId } = event.data.object.metadata
+    if (event.type == "checkout.session.completed") {
+        await orderModel.findOneAndUpdate({ _id: orderId }, { status: "placed" }, { new: true })
+        return res.status(200).json({ status: "done" })
+    }
+    await orderModel.findOneAndUpdate({ _id: orderId }, { status: "rejected" }, { new: true })
+    return res.status(400).json({ status: "fail" })
+
+
+
+
+}
 
 
 // ================================  cancelOrder ================================================

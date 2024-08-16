@@ -28,7 +28,7 @@ export const auth = () => {
             return res.status(409).json({ msg: "user not exist" })
         }
 
-        if (parseInt(user.passwordChangedAt.getTime() / 1000) > decoded.iat) {
+        if (parseInt(user?.passwordChangedAt?.getTime() / 1000) > decoded.iat) {
             return res.status(401).json({ msg: "password changed please login again" })
         }
 
