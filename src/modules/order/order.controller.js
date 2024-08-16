@@ -153,7 +153,6 @@ export const createOrder = asyncHandler(async (req, res, next) => {
 })
 
 
-
 export const webhook = async (req, res) => {
     const stripe = new Stripe(process.env.secret_key)
     const sig = req.headers['stripe-signature'];
@@ -163,8 +162,8 @@ export const webhook = async (req, res) => {
     try {
         event = stripe.webhooks.constructEvent(req.body, sig, process.env.endpointSecret);
     } catch (err) {
-        res.status(400).send(`Webhook Error: ${err.message}`);
-        return;
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+        
     }
 
     const { orderId } = event.data.object.metadata
