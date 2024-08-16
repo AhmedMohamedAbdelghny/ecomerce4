@@ -163,16 +163,18 @@ export const webhook = async (req, res) => {
         event = stripe.webhooks.constructEvent(req.body, sig, process.env.endpointSecret);
     } catch (err) {
         return res.status(400).send(`Webhook Error: ${err.message}`);
-        
+
     }
 
     const { orderId } = event.data.object.metadata
     if (event.type == "checkout.session.completed") {
         await orderModel.findOneAndUpdate({ _id: orderId }, { status: "placed" }, { new: true })
         return res.status(200).json({ status: "done" })
+    } else {
+        await orderModel.findOneAndUpdate({ _id: orderId }, { status: "rejected" }, { new: true })
+        return res.status(400).json({ status: "fail" })
     }
-    await orderModel.findOneAndUpdate({ _id: orderId }, { status: "rejected" }, { new: true })
-    return res.status(400).json({ status: "fail" })
+
 
 
 
