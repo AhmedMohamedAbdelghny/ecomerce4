@@ -143,7 +143,7 @@ export const createOrder = asyncHandler(async (req, res, next) => {
                 }
             })
         })
-        return res.status(201).json({ status: "done", order, session })
+        return res.status(201).json({ status: "done", order, url: session.url })
 
     }
 
@@ -166,7 +166,7 @@ export const webhook = async (req, res) => {
         res.status(400).send(`Webhook Error: ${err.message}`);
         return;
     }
-    
+
     const { orderId } = event.data.object.metadata
     if (event.type == "checkout.session.completed") {
         await orderModel.findOneAndUpdate({ _id: orderId }, { status: "placed" }, { new: true })
